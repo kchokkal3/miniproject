@@ -1,0 +1,4 @@
+(executable
+ (public_name miniproject)
+ (name main)
+ (libraries miniproject core))
