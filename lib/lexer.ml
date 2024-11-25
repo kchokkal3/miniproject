@@ -67,4 +67,4 @@ let%expect_test _ =
     defn I = \x. x
     eval Y I
     |};
-  [%expect {| (Ok(LParen BSlash(Name test)Period(Name test)RParen)) |}]
+  [%expect {| (Ok(Defn(Name Y)Equal BSlash(Name h)Period LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen Defn(Name I)Equal BSlash(Name x)Period(Name x)Eval(Name Y)(Name I))) |}]
