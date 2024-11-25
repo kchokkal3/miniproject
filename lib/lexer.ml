@@ -2,47 +2,47 @@ open! Core
 open Token
 open Or_error.Let_syntax
 
-let lambda_check_reserved s =
+let check_reserved_lambda s =
   match s with
   | "defn" -> LToken.Defn
   | "eval" -> LToken.Eval
   | _ -> LToken.Name s
 
-let rec lex_lambda_helper s line col =
+let rec lex_helper_lambda s line col =
   match s with
   | [] -> Ok []
   | h :: tl -> (
       match h with
       | '(' ->
-          let%bind rest = lex_lambda_helper tl line (col + 1) in
+          let%bind rest = lex_helper_lambda tl line (col + 1) in
           Ok (LToken.LParen :: rest)
       | ')' ->
-          let%bind rest = lex_lambda_helper tl line (col + 1) in
+          let%bind rest = lex_helper_lambda tl line (col + 1) in
           Ok (LToken.RParen :: rest)
       | '\\' ->
-          let%bind rest = lex_lambda_helper tl line (col + 1) in
+          let%bind rest = lex_helper_lambda tl line (col + 1) in
           Ok (LToken.BSlash :: rest)
       | '.' ->
-          let%bind rest = lex_lambda_helper tl line (col + 1) in
+          let%bind rest = lex_helper_lambda tl line (col + 1) in
           Ok (LToken.Period :: rest)
       | '=' ->
-          let%bind rest = lex_lambda_helper tl line (col + 1) in
+          let%bind rest = lex_helper_lambda tl line (col + 1) in
           Ok (LToken.Equal :: rest)
-      | '\n' -> lex_lambda_helper tl (line + 1) 0
-      | w when Char.is_whitespace w -> lex_lambda_helper tl line (col + 1)
+      | '\n' -> lex_helper_lambda tl (line + 1) 0
+      | w when Char.is_whitespace w -> lex_helper_lambda tl line (col + 1)
       | x when Char.is_alpha x ->
           let name = String.take_while ~f:Char.is_alpha (String.of_list s) in
           let name_len = String.length name in
           let new_tl = List.drop s name_len in
-          let%bind rest = lex_lambda_helper new_tl line (col + name_len) in
-          Ok (lambda_check_reserved name :: rest)
+          let%bind rest = lex_helper_lambda new_tl line (col + name_len) in
+          Ok (check_reserved_lambda name :: rest)
       | t ->
           Or_error.error_string
             [%string
               "Invalid token '%{t#Char}' at line %{line#Int}, column %{col#Int}"]
       )
 
-let lex_lambda s = lex_lambda_helper (String.to_list s) 0 0
+let lex_lambda s = lex_helper_lambda (String.to_list s) 0 0
 
 let%expect_test _ =
   let lex_and_print x =
@@ -67,4 +67,5 @@ let%expect_test _ =
     defn I = \x. x
     eval Y I
     |};
-  [%expect {| (Ok(Defn(Name Y)Equal BSlash(Name h)Period LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen Defn(Name I)Equal BSlash(Name x)Period(Name x)Eval(Name Y)(Name I))) |}]
+  [%expect
+    {| (Ok(Defn(Name Y)Equal BSlash(Name h)Period LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen LParen BSlash(Name x)Period(Name h)LParen(Name x)(Name x)RParen RParen Defn(Name I)Equal BSlash(Name x)Period(Name x)Eval(Name Y)(Name I))) |}]
