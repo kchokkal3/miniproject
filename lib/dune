@@ -2,4 +2,4 @@
  (name miniproject)
  (libraries core)
  (inline_tests)
- (preprocess (pps ppx_expect ppx_sexp_conv ppx_let ppx_string)))
+ (preprocess (pps ppx_expect ppx_sexp_conv ppx_let ppx_string ppx_compare)))

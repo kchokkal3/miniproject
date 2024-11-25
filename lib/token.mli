@@ -7,8 +7,8 @@ module LToken : sig
     | Defn
     | Eval
     | Equal
-    | Name of string
-  [@@deriving sexp]
+    | Name of (string[@equal.ignore])
+  [@@deriving sexp, equal]
 end
 
 module FToken : sig
