@@ -22,10 +22,6 @@ module Context = struct
         match String.equal s string with
         | true -> Ok expr
         | false -> get ts string)
-
-  let rec get_deep t string =
-    let%bind expr = get t string in
-    match expr with `Bound (LExpr.Var x) -> get_deep t x | e -> Ok e
 end
 
 let rec substitute_lambda (expr : LExpr.t) (name : string) (sub_expr : LExpr.t)
@@ -73,7 +69,7 @@ let rec can_redex_lambda (expr : LExpr.t) (ctx : Context.t) =
       | Lam (_, _) -> true
       | _ -> can_redex_lambda f ctx || can_redex_lambda s ctx)
   | Var x -> (
-      match Context.get_deep ctx x with
+      match Context.get ctx x with
       | Ok `Defn -> false
       | Ok (`Bound _) -> true
       | Error _ -> false)
@@ -97,13 +93,10 @@ let rec interpret_prog_lambda (progs : LProg.t list) (ctx : Context.t) :
   | prog :: progs -> (
       match prog with
       | Defn (name, expr) ->
-          (* let expr = substitude_progs_lambda expr ctx in *)
-          let%bind eval_expr = interpret_expr_lambda expr ctx in
-
-          let new_ctx = Context.add_bound ctx name eval_expr in
+          (* let%bind eval_expr = interpret_expr_lambda expr ctx in *)
+          let new_ctx = Context.add_bound ctx name expr in
           interpret_prog_lambda progs new_ctx
       | Eval expr ->
-          (* let expr = substitude_progs_lambda expr ctx in *)
           let%bind eval_expr = interpret_expr_lambda expr ctx in
           let rest_err = interpret_prog_lambda progs ctx in
           let%bind rest = rest_err in
@@ -162,4 +155,39 @@ eval exp two one
     Eval result: \s. \z. z
     Eval result: \s. \z. (s) ((s) ((s) ((s) (z))))
     Eval result: \s. \z. (s) ((s) (z))
+            |}];
+  let _ =
+    interpret_and_print
+      {|
+defn zero = \s. \z. z
+defn succ = \n. \s. \z. s (n s z)
+defn one = succ zero
+defn two = succ one
+defn three = succ two
+defn plus = \n. \k. n succ k
+defn times = \n. \k. n (plus k) zero
+defn exp = \n. \k. k (times n) one
+defn pair = \x. \y. \k. k x y
+defn pred2 = \n. n (\p. p (\x. \y. pair (succ x) x)) (pair zero zero)
+defn pred = \n. pred2 n (\x. \y. y)
+defn Y = \h. (\x. h (x x)) (\x. h (x x))
+defn if0 = \n. \x. \y. n (\a. y) x
+defn if1 = \n. \x. \y. if0 n y (if0 (one pred n) x y)
+% Inspiration for how to structure general recursive functions from lecture notes
+defn h_lucas = \f. \n. if0 n two (if1 n one (plus (f (two pred n)) (f (one pred n))))
+defn lucas = Y h_lucas
+
+eval lucas zero
+eval lucas one
+eval lucas two
+eval lucas (times two two)
+   |}
+  in
+  ();
+  [%expect
+    {|
+    Eval result: \s. \z. (s) ((s) (z))
+    Eval result: \s. \z. (s) (z)
+    Eval result: \s. \z. (s) ((s) ((s) (z)))
+    Eval result: \s. \z. (s) ((s) ((s) ((s) (z))))
     |}]
