@@ -3,6 +3,8 @@ open! Core
 module LExpr : sig
   type t = Var of string | Lam of string * t | App of t * t
   [@@deriving sexp, equal]
+
+  val to_string : t -> string
 end
 
 module LProg : sig

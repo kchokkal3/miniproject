@@ -84,7 +84,7 @@ let get_name tok =
   | Tok.Name x -> Ok x
   | _ -> Or_error.error_string "Not Name"
 
-let parse_tok_lambda state (tok : Tok.t) =
+let parse_tok state (tok : Tok.t) =
   match State.peek state with
   | None -> Or_error.error_string "Nothing to parse"
   | Some state_tok -> (
@@ -96,12 +96,12 @@ let parse_tok_lambda state (tok : Tok.t) =
                %{Token.sexp_of_t state_tok#Sexp}"]
       | true -> State.shift_tok state)
 
-let rec parse_tok_list_lambda state toks =
+let rec parse_tok_list state toks =
   match toks with
   | [] -> Ok ()
   | tok :: toks ->
-      Or_error.bind (parse_tok_lambda state tok) ~f:(fun () ->
-          parse_tok_list_lambda state toks)
+      Or_error.bind (parse_tok state tok) ~f:(fun () ->
+          parse_tok_list state toks)
 
 let rec reduce_lambda (stack : State.Item.t Stack.t) =
   match Stack.pop stack with
@@ -129,9 +129,9 @@ let rec parse_expr_lambda state =
   | Some tok -> (
       match Token.get_tok tok with
       | Tok.LParen ->
-          let%bind () = parse_tok_lambda state Tok.LParen in
+          let%bind () = parse_tok state Tok.LParen in
           let%bind () = parse_expr_lambda state in
-          let%bind () = parse_tok_lambda state Tok.RParen in
+          let%bind () = parse_tok state Tok.RParen in
           let%bind () =
             State.reduce_expr state ~after:reduce_lambda ~f:(fun stack ->
                 let%bind _ = State.pop_and_match_token stack Tok.RParen in
@@ -141,15 +141,13 @@ let rec parse_expr_lambda state =
           in
           parse_expr_lambda state
       | Tok.BSlash ->
-          let%bind () =
-            parse_tok_list_lambda state [ BSlash; Name ""; Period ]
-          in
+          let%bind () = parse_tok_list state [ BSlash; Name ""; Period ] in
           let%bind () = parse_expr_lambda state in
           State.reduce_expr state ~after:reduce_lambda ~f:(fun stack ->
               let%bind expr = State.pop_expr stack in
               let%bind _ = State.pop_and_match_token stack Tok.Period in
               let%bind n = State.pop_and_match_token stack (Tok.Name "") in
-              let%bind name = get_name_lambda n in
+              let%bind name = get_name n in
               let%bind _ = State.pop_and_match_token stack Tok.BSlash in
               Ok (Stack.push stack (Expr (LExpr.Lam (name, expr)))))
       | x when Tok.equal x (Tok.Name "") ->
@@ -172,7 +170,7 @@ let rec parse_prog_lambda state =
       match Token.get_tok tok with
       | Tok.Defn ->
           let%bind () =
-            parse_tok_list_lambda state [ Tok.Defn; Tok.Name ""; Tok.Equal ]
+            parse_tok_list state [ Tok.Defn; Tok.Name ""; Tok.Equal ]
           in
           let%bind () = parse_expr_lambda state in
           let%bind prog =
@@ -180,14 +178,14 @@ let rec parse_prog_lambda state =
                 let%bind expr = State.pop_expr stack in
                 let%bind _ = State.pop_and_match_token stack Tok.Equal in
                 let%bind n = State.pop_and_match_token stack (Tok.Name "") in
-                let%bind name = get_name_lambda n in
+                let%bind name = get_name n in
                 let%bind _ = State.pop_and_match_token stack Tok.Defn in
                 Ok (LProg.Defn (name, expr)))
           in
           let%bind progs = parse_prog_lambda state in
           Ok (prog :: progs)
       | Tok.Eval ->
-          let%bind () = parse_tok_list_lambda state [ Tok.Eval ] in
+          let%bind () = parse_tok_list state [ Tok.Eval ] in
           let%bind () = parse_expr_lambda state in
           let%bind prog =
             State.reduce_prog state ~f:(fun stack ->
