@@ -19,4 +19,4 @@ end
 
 let%expect_test _ =
   print_endline (Bool.to_string (LToken.equal (Name "x") (Name "y")));
-  [%expect {||}]
+  [%expect {| true |}]
