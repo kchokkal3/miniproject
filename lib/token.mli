@@ -1,4 +1,4 @@
-module LToken : sig
+module Tok : sig
   type t =
     | LParen
     | RParen
@@ -11,6 +11,9 @@ module LToken : sig
   [@@deriving sexp, equal]
 end
 
-module FToken : sig
-  type t = LParen | RParen | BSlash | Name of string
-end
+type t = Tok.t * int * int [@@deriving sexp]
+
+val equal : t -> t -> bool
+val get_tok : t -> Tok.t
+val get_info : t -> int * int
+val init : Tok.t -> int * int -> t

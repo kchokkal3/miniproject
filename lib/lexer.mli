@@ -1,4 +1,3 @@
 open! Core
-open Token
 
-val lex_lambda : string -> LToken.t list Or_error.t
+val lex_lambda : string -> Token.t list Or_error.t
