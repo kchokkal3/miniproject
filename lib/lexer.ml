@@ -26,10 +26,22 @@ let rec lex_helper_lambda s (line : int) col =
       | '=' ->
           let%bind rest = lex_helper_lambda tl line (col + 1) in
           construct_token Tok.Equal rest
+      | '%' when Int.equal col 0 -> (
+          let tl =
+            List.drop_while tl ~f:(fun c -> not (Char.equal c '\n')) |> List.tl
+          in
+          match tl with
+          | Some tl -> lex_helper_lambda tl (line + 1) 0
+          | None -> Ok [])
       | '\n' -> lex_helper_lambda tl (line + 1) 0
       | w when Char.is_whitespace w -> lex_helper_lambda tl line (col + 1)
       | x when Char.is_alpha x ->
-          let name = String.take_while ~f:Char.is_alpha (String.of_list s) in
+          let name =
+            String.take_while
+              ~f:(fun c ->
+                Char.is_alpha c || Char.is_digit c || Char.equal '_' c)
+              (String.of_list s)
+          in
           let name_len = String.length name in
           let new_tl = List.drop s name_len in
           let%bind rest = lex_helper_lambda new_tl line (col + name_len) in
