@@ -11,10 +11,6 @@ module Context = struct
   let add_defn (t : t) string = (string, `Defn) :: t
   let add_bound (t : t) string expr = (string, `Bound expr) :: t
 
-  let get_bound_exprs (t : t) =
-    List.filter_map t ~f:(fun (name, expr) ->
-        match expr with `Defn -> None | `Bound e -> Some (name, e))
-
   let rec get t string =
     match t with
     | [] -> Or_error.error_string [%string "Unknown name %{string}"]
@@ -44,47 +40,35 @@ let rec substitute_lambda (expr : LExpr.t) (name : string) (sub_expr : LExpr.t)
         ( substitute_lambda fexpr name sub_expr,
           substitute_lambda sexpr name sub_expr )
 
-let rec redex_lambda (expr : LExpr.t) (ctx : Context.t) =
+let rec redex_lambda (expr : LExpr.t) (ctx : Context.t) :
+    (LExpr.t * bool) Or_error.t =
   match expr with
   | Var x -> (
       let%bind var = Context.get ctx x in
-      match var with `Defn -> Ok (LExpr.Var x) | `Bound e -> Ok e)
+      match var with
+      | `Defn -> Ok (LExpr.Var x, false)
+      | `Bound e -> Ok (e, true))
   | Lam (name, expr) ->
       let new_ctx = Context.add_defn ctx name in
-      let%bind new_body = redex_lambda expr new_ctx in
-      Ok (LExpr.Lam (name, new_body))
+      let%bind new_body, changed = redex_lambda expr new_ctx in
+      Ok (LExpr.Lam (name, new_body), changed)
   | App (fexpr, sexpr) -> (
       match fexpr with
-      | Lam (b, e) -> substitute_lambda e b sexpr |> Or_error.return
-      | _ ->
-          let%bind new_fexpr = redex_lambda fexpr ctx in
-          let%bind new_sexpr = redex_lambda sexpr ctx in
-          Ok (LExpr.App (new_fexpr, new_sexpr)))
-
-let rec can_redex_lambda (expr : LExpr.t) (ctx : Context.t) =
-  match expr with
-  | Lam (b, e) -> can_redex_lambda e (Context.add_defn ctx b)
-  | App (f, s) -> (
-      match f with
-      | Lam (_, _) -> true
-      | _ -> can_redex_lambda f ctx || can_redex_lambda s ctx)
-  | Var x -> (
-      match Context.get ctx x with
-      | Ok `Defn -> false
-      | Ok (`Bound _) -> true
-      | Error _ -> false)
+      | Lam (b, e) -> Ok (substitute_lambda e b sexpr, true)
+      | _ -> (
+          let%bind new_fexpr, changed = redex_lambda fexpr ctx in
+          match changed with
+          | true -> Ok (LExpr.App (new_fexpr, sexpr), true)
+          | false ->
+              let%bind new_sexpr, changed = redex_lambda sexpr ctx in
+              Ok (LExpr.App (fexpr, new_sexpr), changed)))
 
 let rec interpret_expr_lambda (expr : LExpr.t) (ctx : Context.t) :
     LExpr.t Or_error.t =
-  let%bind new_expr = redex_lambda expr ctx in
-  match can_redex_lambda new_expr ctx with
+  let%bind new_expr, changed = redex_lambda expr ctx in
+  match changed with
   | true -> interpret_expr_lambda new_expr ctx
   | false -> Ok new_expr
-
-let _substitute_progs_lambda (expr : LExpr.t) (ctx : Context.t) =
-  List.fold ~init:expr
-    ~f:(fun expr (name, bound_expr) -> substitute_lambda expr name bound_expr)
-    (Context.get_bound_exprs ctx)
 
 let rec interpret_prog_lambda (progs : LProg.t list) (ctx : Context.t) :
     LExpr.t list Or_error.t =
@@ -93,7 +77,6 @@ let rec interpret_prog_lambda (progs : LProg.t list) (ctx : Context.t) :
   | prog :: progs -> (
       match prog with
       | Defn (name, expr) ->
-          (* let%bind eval_expr = interpret_expr_lambda expr ctx in *)
           let new_ctx = Context.add_bound ctx name expr in
           interpret_prog_lambda progs new_ctx
       | Eval expr ->
@@ -189,5 +172,5 @@ eval lucas (times two two)
     Eval result: \s. \z. (s) ((s) (z))
     Eval result: \s. \z. (s) (z)
     Eval result: \s. \z. (s) ((s) ((s) (z)))
-    Eval result: \s. \z. (s) ((s) ((s) ((s) (z))))
+    Eval result: \s. \z. (s) ((s) ((s) ((s) ((s) ((s) ((s) (z)))))))
     |}]

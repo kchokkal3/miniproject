@@ -1,0 +1,22 @@
+defn zero = \s. \z. z
+defn succ = \n. \s. \z. s (n s z)
+defn one = succ zero
+defn two = succ one
+defn three = succ two
+defn plus = \n. \k. n succ k
+defn times = \n. \k. n (plus k) zero
+defn exp = \n. \k. k (times n) one
+defn pair = \x. \y. \k. k x y
+defn pred2 = \n. n (\p. p (\x. \y. pair (succ x) x)) (pair zero zero)
+defn pred = \n. pred2 n (\x. \y. y)
+defn Y = \h. (\x. h (x x)) (\x. h (x x))
+defn if0 = \n. \x. \y. n (\a. y) x
+defn if1 = \n. \x. \y. if0 n y (if0 (one pred n) x y)
+% Inspiration for how to structure general recursive functions from lecture notes
+defn h_lucas = \f. \n. if0 n two (if1 n one (plus (f (two pred n)) (f (one pred n))))
+defn lucas = Y h_lucas
+
+eval lucas zero
+eval lucas one
+eval lucas two
+eval lucas (times two two)

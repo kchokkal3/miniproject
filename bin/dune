@@ -1,4 +1,5 @@
 (executable
  (public_name miniproject)
  (name main)
- (libraries miniproject core))
+ (libraries miniproject core core_unix.command_unix core_unix.filename_unix)
+ (preprocess (pps ppx_jane)))
